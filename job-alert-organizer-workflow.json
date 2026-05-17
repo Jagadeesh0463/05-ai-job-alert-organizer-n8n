@@ -1,0 +1,448 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-192, 96],
+      "id": "41456550-7656-4215-b8a5-2860bff17cdf",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 3,
+        "filters": {
+          "q": "from:{{YOUR_JOB_ALERT_EMAIL}} newer_than:1d"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [16, 96],
+      "id": "8b976b19-0fa5-4e9b-860b-7d13885144a1",
+      "name": "Fetch Job Alert Emails",
+      "webhookId": "{{WEBHOOK_ID_1}}",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{GMAIL_CREDENTIAL_ID}}",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{$json[\"snippet\"]}}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "job_title",
+              "description": "Extract the job role or title from the email",
+              "required": true
+            },
+            {
+              "name": "company",
+              "description": "Extract company name",
+              "required": true
+            },
+            {
+              "name": "location",
+              "description": "Extract job location"
+            },
+            {
+              "name": "salary",
+              "description": "Extract salary or package if mentioned"
+            },
+            {
+              "name": "apply_link",
+              "description": "Extract application URL"
+            },
+            {
+              "name": "deadline",
+              "description": "Extract application deadline"
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "Return ONLY valid JSON.\n\nDo NOT wrap output inside ```json blocks.\nDo NOT use markdown.\nDo NOT explain.\n\nOutput example:\n\n{\n\"job_title\":\"\",\n\"company\":\"\",\n\"location\":\"\",\n\"salary\":\"\",\n\"apply_link\":\"\",\n\"deadline\":\"\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [224, 96],
+      "id": "891e5bca-a8d3-4b38-8759-641d4f82ba20",
+      "name": "Extract Job Details"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [224, 288],
+      "id": "2f1e4d0b-3eb2-4a17-ac58-793037b1730b",
+      "name": "Job Extraction Model",
+      "credentials": {
+        "groqApi": {
+          "id": "{{GROQ_CREDENTIAL_ID}}",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const seen = new Set();\n\nreturn items.filter(item => {\n\nconst key =\n(item.json.output?.job_title || \"\") +\n(item.json.output?.company || \"\");\n\nif (seen.has(key)) return false;\n\nseen.add(key);\n\nreturn true;\n\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [576, 96],
+      "id": "dbcfefd2-6029-4878-9d35-d8c1aa124bec",
+      "name": "Remove Duplicate Jobs"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Evaluate this job.\n\nJob Title:\n{{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"job_title\"]}}\n\nCompany:\n{{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"company\"]}}\n\nLocation:\n{{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"location\"]}}\n\nSalary:\n{{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"salary\"]}}\n\nTarget Role:\nAI Engineer / Automation Engineer\n\nSkills:\nPython\nn8n\nLLMs\nAPIs\nAutomation\nGitHub\nMachine Learning\n\nReturn ONLY JSON:\n\n{\n\"fit_score\":85,\n\"reason\":\"short reason\",\n\"recommended\":\"YES\"\n}\n\nNo explanation.\nNo markdown.\nNo ```json.\nOnly JSON.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [784, 96],
+      "id": "50961811-c9c4-4beb-9885-b65173bd3b7a",
+      "name": "AI Resume Match Scorer"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [784, 304],
+      "id": "f56aba67-b59a-4d24-a3fd-4a5de40cd400",
+      "name": "Career Scoring Model",
+      "credentials": {
+        "groqApi": {
+          "id": "{{GROQ_CREDENTIAL_ID}}",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a6034877-e77d-4e1a-af26-c3613cfb5099",
+              "name": "job_title",
+              "value": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"job_title\"]}}",
+              "type": "string"
+            },
+            {
+              "id": "e68039f6-d615-4533-98c7-03a2c5fa6c2b",
+              "name": "company",
+              "value": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"company\"]}}",
+              "type": "string"
+            },
+            {
+              "id": "4becbd28-d9c8-4918-aa98-915b6ae8ca2e",
+              "name": "fit_score",
+              "value": "={{ JSON.parse($json[\"output\"]).fit_score || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "ea90f05f-954b-4894-a306-56a8233cbe1e",
+              "name": "urgency_score",
+              "value": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"deadline\"] ? 90 : 50}}",
+              "type": "number"
+            },
+            {
+              "id": "a5f40a58-60b2-4252-a9ad-c65af32b2491",
+              "name": "opportunity_score",
+              "value": "={{ (JSON.parse($json[\"output\"]).fit_score * 0.7) + (($node[\"Remove Duplicate Jobs\"].json[\"output\"][\"deadline\"] ? 90 : 50) * 0.3) }}",
+              "type": "number"
+            },
+            {
+              "id": "1923bfd3-0241-401d-9902-249660cd2429",
+              "name": "location",
+              "value": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"location\"]}}",
+              "type": "string"
+            },
+            {
+              "id": "1a924789-729d-4b41-81b6-8b7a4dc56c6d",
+              "name": "salary",
+              "value": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"salary\"]}}",
+              "type": "string"
+            },
+            {
+              "id": "fe20ccbf-2771-45c7-81ca-9abb2167cb14",
+              "name": "apply_link",
+              "value": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"apply_link\"]}}",
+              "type": "string"
+            },
+            {
+              "id": "b386559a-c36a-41f4-9ecf-c14a08fa064b",
+              "name": "recommended",
+              "value": "={{JSON.parse($json[\"output\"]).recommended}}",
+              "type": "string"
+            },
+            {
+              "id": "95ed30b4-ee86-4c57-9285-95ab36806182",
+              "name": "reason",
+              "value": "={{JSON.parse($json[\"output\"]).reason}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1136, 96],
+      "id": "84798540-bba5-492b-afaa-aba9724f013a",
+      "name": "Calculate Opportunity Priority"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "{{GOOGLE_SHEET_DOCUMENT_ID}}",
+          "mode": "list",
+          "cachedResultName": "Job Opportunities Tracker",
+          "cachedResultUrl": "{{REPLACE_LOCALLY}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "{{SHEET_NAME}}",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "{{REPLACE_LOCALLY}}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_title": "={{$json[\"job_title\"]}}",
+            "company": "={{$json[\"company\"]}}",
+            "location": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"location\"]}}",
+            "salary": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"salary\"]}}",
+            "urgency_score": "={{$json[\"urgency_score\"]}}",
+            "fit_score": "={{$json[\"fit_score\"]}}",
+            "opportunity_score": "={{$json[\"opportunity_score\"]}}",
+            "apply_link": "={{$node[\"Remove Duplicate Jobs\"].json[\"output\"][\"apply_link\"]}}",
+            "Applied": "NO",
+            "Interview": "NO",
+            "Created_At": "={{$now}}",
+            "Status": "NEW",
+            "recommended": "={{$json[\"recommended\"]}}",
+            "reason": "={{$json[\"reason\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {"id": "job_title", "displayName": "job_title", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "company", "displayName": "company", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "location", "displayName": "location", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "salary", "displayName": "salary", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "fit_score", "displayName": "fit_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "urgency_score", "displayName": "urgency_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "opportunity_score", "displayName": "opportunity_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "recommended", "displayName": "recommended", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "reason", "displayName": "reason", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "apply_link", "displayName": "apply_link", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Applied", "displayName": "Applied", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Interview", "displayName": "Interview", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Status", "displayName": "Status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true},
+            {"id": "Created_At", "displayName": "Created_At", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true}
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1344, 96],
+      "id": "51bbd745-c9d3-4b21-a475-52347b33a2e7",
+      "name": "Store Opportunity Tracker",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "{{GOOGLE_SHEETS_CREDENTIAL_ID}}",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI recruiter.\n\nUse ONLY these values.\n\nRole: {{ $json.job_title }}\nCompany: {{ $json.company }}\nLocation: {{ $json.location }}\nSalary: {{ $json.salary }}\n\nFit Score: {{ $json.fit_score }}\nOpportunity Score: {{ $json.opportunity_score }}\n\nRecommendation: {{ $json.recommended }}\n\nReason:\n{{ $json.reason }}\n\nReturn EXACTLY:\n\n🚀 Top Opportunity\n\nRole: {{ $json.job_title }}\nCompany: {{ $json.company }}\nLocation: {{ $json.location }}\nSalary: {{ $json.salary }}\n\nAI Match Score: {{ $json.fit_score }}/100\nPriority Score: {{ $json.opportunity_score }}/100\n\nRecommendation:\n{{ $json.recommended }}\n\nWhy this matters:\n{{ $json.reason }}\n\nNext Step:\nAPPLY NOW\n\nRules:\n- Do NOT modify scores\n- Do NOT invent text\n- Repeat values exactly\n- Return one opportunity only",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [1552, 96],
+      "id": "3d5ff0c6-5023-4d46-89b6-9ac8ee6d7e2c",
+      "name": "Generate Daily Top Opportunities"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [1552, 304],
+      "id": "303abf4f-e159-4559-b1a7-7d285705d608",
+      "name": "opportunity Ranking Model",
+      "credentials": {
+        "groqApi": {
+          "id": "{{GROQ_CREDENTIAL_ID}}",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "{{YOUR_EMAIL}}",
+        "subject": "Daily AI Job Shortlist – Top Opportunities",
+        "message": "=<h2>🚀 Daily AI Job Shortlist</h2>\n\n<p>Hello,</p>\n\n<pre>\n{{$json[\"output\"]}}\n</pre>\n\n<hr>\n\n<p>Generated automatically by AI Job Intelligence Workflow</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1904, 96],
+      "id": "39c84917-e09f-419e-b3f3-d5893ab9983b",
+      "name": "Send Daily Opportunity Digest",
+      "webhookId": "{{WEBHOOK_ID_2}}",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{GMAIL_CREDENTIAL_ID}}",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2112, 96],
+      "id": "80c8c273-5915-4eea-a702-e5de0f4ef473",
+      "name": "Wait 48 Hours",
+      "webhookId": "{{WEBHOOK_ID_3}}"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "99cb3177-c2f6-4eb0-8280-cec227ebf7ed",
+              "leftValue": "={{$node[\"Store Opportunity Tracker\"].json[\"Applied\"]}}",
+              "rightValue": "NO",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2320, 96],
+      "id": "bb5ddb24-3ed8-4936-9685-22c821803add",
+      "name": "Check Application Status"
+    },
+    {
+      "parameters": {
+        "sendTo": "{{YOUR_EMAIL}}",
+        "subject": "Reminder: Pending Job Applications Need Attention",
+        "message": "=<h2>⏰ Reminder: Pending Job Application</h2>\n\n<p>Hello,</p>\n\n<p>You shortlisted this opportunity but have not applied yet:</p>\n\n<hr>\n\n<b>Role:</b>\n{{$node[\"Store Opportunity Tracker\"].json[\"job_title\"]}}\n<br><br>\n\n<b>Company:</b>\n{{$node[\"Store Opportunity Tracker\"].json[\"company\"]}}\n<br><br>\n\n<b>Location:</b>\n{{$node[\"Store Opportunity Tracker\"].json[\"location\"]}}\n<br><br>\n\n<b>Salary:</b>\n{{$node[\"Store Opportunity Tracker\"].json[\"salary\"]}}\n<br><br>\n\n<b>Opportunity Score:</b>\n{{$node[\"Store Opportunity Tracker\"].json[\"opportunity_score\"]}} /100\n<br><br>\n\n<b>Reason to apply:</b>\n{{$node[\"Store Opportunity Tracker\"].json[\"reason\"]}}\n<br><br>\n\n<b>Apply here:</b><br>\n{{$node[\"Store Opportunity Tracker\"].json[\"apply_link\"]}}\n\n<hr>\n\n<p>Recommended action: <b>Apply within 24–48 hours if still interested.</b></p>\n\n<p>Generated automatically by AI Job Intelligence Workflow</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [2624, 80],
+      "id": "be8d97c3-add4-4940-b754-ec96f185afbf",
+      "name": "Send Application Reminder",
+      "webhookId": "{{WEBHOOK_ID_4}}",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{GMAIL_CREDENTIAL_ID}}",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "Fetch Job Alert Emails", "type": "main", "index": 0}]]
+    },
+    "Fetch Job Alert Emails": {
+      "main": [[{"node": "Extract Job Details", "type": "main", "index": 0}]]
+    },
+    "Extract Job Details": {
+      "main": [[{"node": "Remove Duplicate Jobs", "type": "main", "index": 0}]]
+    },
+    "Job Extraction Model": {
+      "ai_languageModel": [[{"node": "Extract Job Details", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Remove Duplicate Jobs": {
+      "main": [[{"node": "AI Resume Match Scorer", "type": "main", "index": 0}]]
+    },
+    "AI Resume Match Scorer": {
+      "main": [[{"node": "Calculate Opportunity Priority", "type": "main", "index": 0}]]
+    },
+    "Career Scoring Model": {
+      "ai_languageModel": [[{"node": "AI Resume Match Scorer", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Calculate Opportunity Priority": {
+      "main": [[{"node": "Store Opportunity Tracker", "type": "main", "index": 0}]]
+    },
+    "Store Opportunity Tracker": {
+      "main": [[{"node": "Generate Daily Top Opportunities", "type": "main", "index": 0}]]
+    },
+    "Generate Daily Top Opportunities": {
+      "main": [[{"node": "Send Daily Opportunity Digest", "type": "main", "index": 0}]]
+    },
+    "opportunity Ranking Model": {
+      "ai_languageModel": [[{"node": "Generate Daily Top Opportunities", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Send Daily Opportunity Digest": {
+      "main": [[{"node": "Wait 48 Hours", "type": "main", "index": 0}]]
+    },
+    "Wait 48 Hours": {
+      "main": [[{"node": "Check Application Status", "type": "main", "index": 0}]]
+    },
+    "Check Application Status": {
+      "main": [[{"node": "Send Application Reminder", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "{{N8N_INSTANCE_ID}}"
+  }
+}
